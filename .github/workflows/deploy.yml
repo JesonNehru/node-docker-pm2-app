@@ -27,3 +27,8 @@ jobs:
           docker rm -f $(docker ps -q --filter ancestor=node-pm2-app) || true
           docker run -d -p 3000:3000 node-pm2-app
         EOF
+     - name: Test SSH connection
+      run: |
+        echo "👉 Trying SSH connection to ${{ secrets.EC2_HOST }}"
+        ssh -v -o StrictHostKeyChecking=no ${{ secrets.EC2_HOST }} -p ${{ secrets.EC2_PORT }} "echo ✅ SSH success"
+
