@@ -13,22 +13,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Add SSH key
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: ${{ secrets.EC2_PROJECT_KEY }}
-
-      - name: Deploy using SSH
+      - name: Setup SSH key
         run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-            cd ~/node-pm2-docker-app || git clone https://github.com/JesonNehru/node-pm2-docker-app.git ~/node-pm2-docker-app && cd ~/node-pm2-docker-app
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_PROJECT_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 13.59.140.98 >> ~/.ssh/known_hosts
 
-            git pull origin main
-            docker build -t pm2-image .
-            docker rm -f pm2-container || true
-            docker run -d \
-              --name pm2-container \
-              --network monitoring \
-              -p 3010:3000 \
-              pm2-image
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ec2-user@13.59.140.98 << 'EOF'
+          cd ~/node-pm2-docker-app
+          git pull origin main
+          docker build -t pm2-image .
+          docker stop pm2-container || true
+          docker rm pm2-container || true
+          docker run -d --name pm2-container --network monitoring -p 3010:3000 pm2-image
           EOF
