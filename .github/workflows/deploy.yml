@@ -1,4 +1,4 @@
-name: Deploy to AWS EC2
+name: Deploy to EC2
 
 on:
   push:
@@ -13,19 +13,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up SSH
+      - name: Add SSH key
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.EC2_PROJECT_KEY }}
 
-      - name: Deploy app to EC2
+      - name: Deploy using SSH
         run: |
-          echo "👉 Trying SSH connection to ${{ secrets.EC2_HOST }}"
-          ssh -v -o StrictHostKeyChecking=no ${{ secrets.EC2_HOST }} -p ${{ secrets.EC2_PORT }} << 'EOF'
-            cd ~/node-pm2-docker-app || git clone https://github.com/JesonNehru/node-docker-pm2-app.git && cd node-pm2-docker-app
-            git pull
-            docker build -t node-pm2-app .
-            docker ps --filter "publish=3000" -q | xargs -r docker rm -f
-            docker run -d -p 3000:3000 node-pm2-app
-          EOF
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~/node-pm2-docker-app || git clone https://github.com/JesonNehru/node-pm2-docker-app.git ~/node-pm2-docker-app && cd ~/node-pm2-docker-app
 
+            git pull origin main
+            docker build -t pm2-image .
+            docker rm -f pm2-container || true
+            docker run -d \
+              --name pm2-container \
+              --network monitoring \
+              -p 3010:3000 \
+              pm2-image
+          EOF
